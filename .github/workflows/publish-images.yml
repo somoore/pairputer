@@ -1,0 +1,91 @@
+name: publish-images
+
+# Build, push, cosign-keyless-SIGN, and SLSA-attest the two public pairputer images.
+# Auth to AWS is via GitHub OIDC (no stored keys); the SAME OIDC identity is what cosign uses to sign
+# keyless. Public images are built ONLY here — never from a laptop — so their provenance is this repo's
+# CI. See SECURITY.md and ci/README.md.
+#
+# Prereqs (one-time, maintainer): deploy ci/pairputer-ci.yaml; set the repo variables below.
+
+on:
+  workflow_dispatch:            # manual, deliberate publish (not on every push)
+    inputs:
+      confirm:
+        description: 'Type "publish" to confirm building + signing public images'
+        required: true
+
+permissions:
+  id-token: write               # REQUIRED: lets the runner mint the GitHub OIDC token (AWS auth + cosign)
+  contents: read
+
+env:
+  AWS_REGION: us-east-1         # ECR Public is us-east-1 only
+  # Set these as repo variables (Settings > Secrets and variables > Actions > Variables):
+  #   AWS_PUBLISH_ROLE_ARN  = the pairputer-ci PushRoleArn output
+  #   ECR_PUBLIC_ALIAS      = your public.ecr.aws registry alias (aws ecr-public describe-registries)
+  ROLE_ARN: ${{ vars.AWS_PUBLISH_ROLE_ARN }}
+  ECR_ALIAS: ${{ vars.ECR_PUBLIC_ALIAS }}
+
+jobs:
+  publish:
+    if: ${{ inputs.confirm == 'publish' }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - repo: pairputer-mcp
+            context: substrate/mcp-server
+          - repo: pairputer-stateful-relay
+            context: substrate/stateful-relay
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4.3.1
+
+      - name: Configure AWS via OIDC (no stored keys)
+        uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a  # v4.3.1
+        with:
+          role-to-assume: ${{ env.ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Log in to ECR Public
+        run: aws ecr-public get-login-password --region "$AWS_REGION" | docker login --username AWS --password-stdin public.ecr.aws
+
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f  # v3.12.0
+      - uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130     # v3.7.0 — for linux/arm64 build on x86 runner
+
+      - name: Build + push ARM64 (single-manifest, no index)
+        id: build
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8  # v6.19.2
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.context }}/Dockerfile
+          platforms: linux/arm64
+          push: true
+          provenance: false          # match build-and-push.sh: clean v2 manifest, not an OCI index
+          sbom: false
+          tags: public.ecr.aws/${{ env.ECR_ALIAS }}/${{ matrix.repo }}:latest
+
+      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6  # v4.1.2 — knows cosign v3.1.1
+        with:
+          cosign-release: v3.1.1   # pin: must match the verify-gate Lambda's cosign (no v2/v3 skew)
+
+      - name: Cosign keyless SIGN the digest
+        env:
+          IMG: public.ecr.aws/${{ env.ECR_ALIAS }}/${{ matrix.repo }}@${{ steps.build.outputs.digest }}
+        run: cosign sign --yes "$IMG"    # keyless: uses the GH Actions OIDC token; sig -> same repo + Rekor
+
+      - name: Cosign keyless SLSA build-provenance ATTEST the digest
+        env:
+          IMG: public.ecr.aws/${{ env.ECR_ALIAS }}/${{ matrix.repo }}@${{ steps.build.outputs.digest }}
+        run: |
+          cat > /tmp/prov.json <<EOF
+          {"buildType":"https://github.com/${{ github.repository }}/actions",
+           "builder":{"id":"https://github.com/${{ github.workflow_ref }}"},
+           "invocation":{"configSource":{"uri":"git+https://github.com/${{ github.repository }}@${{ github.ref }}",
+             "digest":{"sha1":"${{ github.sha }}"}}}}
+          EOF
+          cosign attest --yes --type slsaprovenance --predicate /tmp/prov.json "$IMG"
+
+      - name: Emit the signed digest (record it for the launch template)
+        run: |
+          echo "::notice title=${{ matrix.repo }}::public.ecr.aws/${{ env.ECR_ALIAS }}/${{ matrix.repo }}@${{ steps.build.outputs.digest }}"
+          echo "SIGNED DIGEST -> public.ecr.aws/${{ env.ECR_ALIAS }}/${{ matrix.repo }}@${{ steps.build.outputs.digest }}"

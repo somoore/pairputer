@@ -50,7 +50,7 @@ TEMPLATE_FILE="${SCRIPT_DIR}/cloudformation/pairputer.yaml"
 # defaults point at, so a normal publish keeps that button current. Includes the account number because
 # S3 bucket names are globally unique (a bare "pairputer-launch" can't be re-owned by forkers). Forkers
 # override with PAIRPUTER_LAUNCH_BUCKET=<their-bucket> (and update their own README URL + template defaults).
-LAUNCH_BUCKET="${PAIRPUTER_LAUNCH_BUCKET:-pairputer-launch-932930471665}"
+LAUNCH_BUCKET="${PAIRPUTER_LAUNCH_BUCKET:-pairputer-launch}"
 STACK_NAME_DEFAULT="${PAIRPUTER_STACK_NAME:-pairputer}"
 PACKAGED="/tmp/${LAUNCH_BUCKET}-launch-packaged.yaml"
 ROOT_KEY="templates/pairputer.yaml"

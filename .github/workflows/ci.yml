@@ -1,0 +1,66 @@
+name: ci
+
+# Runs on every pull request into main (and on pushes to main) so PRs have a required
+# gate before merge. Fast, hermetic: the test suite is stdlib + pytest only (no AWS, no
+# network) — it reads the templates/source as files and asserts structure.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: tests + template validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install test deps
+        run: pip install --quiet pytest pyyaml
+
+      - name: Run test suite
+        run: python -m pytest tests/ -q
+
+      - name: Validate CloudFormation templates parse (with CFN intrinsics)
+        run: |
+          python - <<'PY'
+          import glob, sys, yaml
+          class L(yaml.SafeLoader):
+              pass
+          # Accept CloudFormation short-form intrinsics (!Ref, !Sub, !GetAtt, !If, ...) as opaque nodes.
+          L.add_multi_constructor('!', lambda loader, suffix, node: None)
+          files = sorted(
+              glob.glob('substrate/cloudformation/**/*.yaml', recursive=True)
+              + glob.glob('ci/*.yaml')
+          )
+          bad = 0
+          for f in files:
+              try:
+                  yaml.load(open(f), Loader=L)
+                  print(f"ok   {f}")
+              except Exception as e:
+                  bad += 1
+                  print(f"FAIL {f}: {e}")
+          sys.exit(1 if bad else 0)
+          PY
+
+      - name: Shellcheck deploy/ops scripts
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
+          # -S error: fail only on errors (warnings are informational for this heredoc-heavy code).
+          shellcheck -S error \
+            substrate/deploy.sh \
+            substrate/remove-cf.sh \
+            substrate/publish-launch.sh \
+            substrate/wire-codex.sh \
+            scripts/verify-images.sh \
+            scripts/download.sh

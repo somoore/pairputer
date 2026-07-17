@@ -9,10 +9,10 @@ Description: >
 Parameters:
   GitHubOrg:
     Type: String
-    Default: pairputer
+    Default: somoore
   GitHubRepo:
     Type: String
-    Default: pairputer-platform
+    Default: pairputer
   GitHubRef:
     Type: String
     Default: refs/heads/main

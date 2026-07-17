@@ -72,14 +72,14 @@ Parameters:
     # Public agent-doom build context (WAD-free, integrity-hashed — filename embeds its tree SHA-256).
     # Published to pairputer-launch-<account> with a CloudFormation-only read policy (anon GET 403).
     # Republish with package-doom-image.sh + s3 cp; deploy.sh supplies its own for CLI deploys.
-    Default: "s3://pairputer-launch-932930471665/pairputer/microvm-image/pairputer-doom-context-d3160aa750c221da2609a1a0a205ff15f5eb3699dcdf67ea95089577d24301a0.zip"
+    Default: "s3://pairputer-launch/pairputer/microvm-image/pairputer-doom-context-d3160aa750c221da2609a1a0a205ff15f5eb3699dcdf67ea95089577d24301a0.zip"
     Description: >
       S3 URI for the WAD-free DOOM MicroVM build context zip (used only when building a bundled image
       in-stack). Defaults to the public agent-doom context. Required unless DoomImageArnOverride is set.
     AllowedPattern: '^$|^s3://[^\s]+$'
   DoomCodeArtifactBucket:
     Type: String
-    Default: "pairputer-launch-932930471665"
+    Default: "pairputer-launch"
     Description: >
       S3 bucket containing DoomCodeArtifactUri (bundled-image build only). Defaults to the public
       pairputer launch bucket. Required unless DoomImageArnOverride is set.

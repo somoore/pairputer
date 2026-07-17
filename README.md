@@ -25,7 +25,7 @@ Two paths. Both land in your account, `us-east-1`.
 
 ### 🚀 1-click — CloudFormation (fastest)
 
-[![Launch Stack](https://s3.amazonaws.com/cloudformation-examples/cloudformation-launch-stack.png)](https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/create/review?templateURL=https://pairputer-launch-932930471665.s3.amazonaws.com/templates/pairputer.yaml&stackName=pairputer)
+[![Launch Stack](https://s3.amazonaws.com/cloudformation-examples/cloudformation-launch-stack.png)](https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/create/review?templateURL=https://pairputer-launch.s3.amazonaws.com/templates/pairputer.yaml&stackName=pairputer)
 
 Click the button, review the parameters, deploy. **Zero inputs required** — it defaults to pairputer's signed public images and a playable DOOM capsule. Behind the scenes it stands up Cognito, the MCP control plane (Bedrock AgentCore), a private CloudFront-fronted data plane, and builds the DOOM MicroVM image in your account.
 
@@ -38,7 +38,7 @@ After it finishes, you get an **admin invite email** with your temporary passwor
 Use this when you want to **build the images from source**, use **private ECR**, or have Codex wired up **automatically**:
 
 ```bash
-git clone https://github.com/pairputer/pairputer-platform && cd pairputer-platform
+git clone https://github.com/somoore/pairputer && cd pairputer
 substrate/deploy.sh
 ```
 
