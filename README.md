@@ -65,7 +65,3 @@ in dependency order. Nothing is left running, so the bill stops.
 
 - [`docs/architecture.md`](./docs/architecture.md) — how the pieces fit (diagram)
 - [`SECURITY.md`](./SECURITY.md) — the end-to-end supply-chain + trust model
-- [`VISION.md`](./VISION.md) — the thesis: capsules as a substrate for AI chat
-- [`blog2.md`](./blog2.md) — the build story (getting DOOM off the laptop and into your account)
-- [`blog3.md`](./blog3.md) — building the agent that plays the capsule, and shipping it as a cartridge
-- [`blog4.md`](./blog4.md) — making the agent *watchable*: doors, timeouts, toxic slime, and the movers that weren't in the trace
