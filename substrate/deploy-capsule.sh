@@ -182,26 +182,77 @@ fi
 
 # 3. Deploy the capsule stack — builds + tags the image for tag-based discovery.
 echo "==> Deploying capsule stack (image build is async, several minutes)..."
-aws cloudformation deploy \
-  --template-file "${TEMPLATE}" \
-  --stack-name "${STACK_NAME}" \
-  --region "${AWS_REGION}" \
-  --no-fail-on-empty-changeset \
-  --capabilities CAPABILITY_NAMED_IAM CAPABILITY_IAM \
-  --parameter-overrides \
-    "CapsuleContextUri=${CONTEXT_URI}" \
-    "CapsuleContextBucket=${ARTIFACT_BUCKET}" \
-    "CapsuleContextSha256=${CONTEXT_DIGEST}" \
-    "CapsuleImageName=${CAPSULE_IMAGE_NAME}" \
-    "CapsuleId=${CAPSULE_ID}" \
-    "CapsuleDisplayName=${CAPSULE_NAME}" \
-    "CapsuleDescription=${CAPSULE_DESC}" \
-    "CapsuleManifestSsmParam=${MANIFEST_SSM}" \
-    "CapsuleManifestDigest=${MANIFEST_DIGEST}" \
-    "CapsuleReleaseSsmParam=${CURRENT_RELEASE_SSM}" \
-    "CapsuleMinMemoryMiB=${CAPSULE_MIN_MEMORY_MIB}" \
-    "MemoryTierOf=${MEMORY_TIER_OF}" \
-    "MemoryMib=$([[ -n "$MEMORY_TIER_OF" ]] && echo "$CAPSULE_MIN_MEMORY_MIB" || echo "")"
+
+run_capsule_deploy() {
+  aws cloudformation deploy \
+    --template-file "${TEMPLATE}" \
+    --stack-name "${STACK_NAME}" \
+    --region "${AWS_REGION}" \
+    --no-fail-on-empty-changeset \
+    --capabilities CAPABILITY_NAMED_IAM CAPABILITY_IAM \
+    --parameter-overrides \
+      "CapsuleContextUri=${CONTEXT_URI}" \
+      "CapsuleContextBucket=${ARTIFACT_BUCKET}" \
+      "CapsuleContextSha256=${CONTEXT_DIGEST}" \
+      "CapsuleImageName=${CAPSULE_IMAGE_NAME}" \
+      "CapsuleId=${CAPSULE_ID}" \
+      "CapsuleDisplayName=${CAPSULE_NAME}" \
+      "CapsuleDescription=${CAPSULE_DESC}" \
+      "CapsuleManifestSsmParam=${MANIFEST_SSM}" \
+      "CapsuleManifestDigest=${MANIFEST_DIGEST}" \
+      "CapsuleReleaseSsmParam=${CURRENT_RELEASE_SSM}" \
+      "CapsuleMinMemoryMiB=${CAPSULE_MIN_MEMORY_MIB}" \
+      "MemoryTierOf=${MEMORY_TIER_OF}" \
+      "MemoryMib=$([[ -n "$MEMORY_TIER_OF" ]] && echo "$CAPSULE_MIN_MEMORY_MIB" || echo "")" 2>&1
+}
+
+# The AWS-managed AWS::Lambda::MicrovmImage resource (CapsuleMicrovmImage) intermittently fails with
+# "did not stabilize" on first create. Retry that specific transient flake — a full re-deploy re-polls
+# the image and it usually stabilizes on a later pass. A real config error fails identically each time
+# and still surfaces. Same logic deploy.sh uses. Null-safe event scan (contains() on a null
+# ResourceStatusReason throws and silently disables detection). Tune with PAIRPUTER_DEPLOY_RETRIES.
+CAPSULE_DEPLOY_MAX_ATTEMPTS="${PAIRPUTER_DEPLOY_RETRIES:-2}"
+capsule_events_have_flake() {  # $1 = stack name/arn; 0 if events mention the image flake
+  aws cloudformation describe-stack-events --stack-name "$1" --region "${AWS_REGION}" \
+    --query 'StackEvents[].[ResourceStatusReason,LogicalResourceId]' --output text 2>/dev/null \
+    | grep -qiE "did not stabilize|CapsuleMicrovmImage|MicrovmImage"
+}
+cap_attempt=0
+while :; do
+  set +e
+  CAP_OUTPUT="$(run_capsule_deploy)"
+  CAP_RC=$?
+  set -e
+  echo "${CAP_OUTPUT}"
+  [[ ${CAP_RC} -eq 0 ]] && break
+  echo "${CAP_OUTPUT}" | grep -qiE "No changes to deploy|No updates are to be performed" && break
+
+  CAP_FLAKE="false"
+  if echo "${CAP_OUTPUT}" | grep -qiE "did not stabilize|MicrovmImage"; then
+    CAP_FLAKE="true"
+  elif capsule_events_have_flake "${STACK_NAME}"; then
+    CAP_FLAKE="true"
+  fi
+
+  if [[ "${CAP_FLAKE}" == "true" && ${cap_attempt} -lt ${CAPSULE_DEPLOY_MAX_ATTEMPTS} ]]; then
+    cap_attempt=$((cap_attempt + 1))
+    echo "==> Capsule image hit the flaky 'did not stabilize'; retrying (attempt ${cap_attempt}/${CAPSULE_DEPLOY_MAX_ATTEMPTS})..." >&2
+    aws cloudformation wait stack-rollback-complete --stack-name "${STACK_NAME}" --region "${AWS_REGION}" >/dev/null 2>&1 || true
+    # A failed FIRST create leaves ROLLBACK_COMPLETE, which can't be updated — delete before retrying.
+    CAP_STATE="$(aws cloudformation describe-stacks --stack-name "${STACK_NAME}" --region "${AWS_REGION}" \
+      --query 'Stacks[0].StackStatus' --output text 2>/dev/null || true)"
+    if [[ "${CAP_STATE}" == "ROLLBACK_COMPLETE" || "${CAP_STATE}" == "ROLLBACK_FAILED" ]]; then
+      echo "    Stack is ${CAP_STATE}; deleting before the clean re-create..." >&2
+      aws cloudformation delete-stack --stack-name "${STACK_NAME}" --region "${AWS_REGION}" >/dev/null 2>&1 || true
+      aws cloudformation wait stack-delete-complete --stack-name "${STACK_NAME}" --region "${AWS_REGION}" >/dev/null 2>&1 || true
+    fi
+    continue
+  fi
+
+  echo "ERROR: capsule stack deploy failed (exit ${CAP_RC})." >&2
+  [[ "${CAP_FLAKE}" == "true" ]] && echo "       The MicroVM image failed to stabilize even after ${CAPSULE_DEPLOY_MAX_ATTEMPTS} retries; re-run to resume." >&2
+  exit "${CAP_RC}"
+done
 
 # CloudFormation's release publisher runs only after the matching ACTIVE image version exists. It verifies
 # the staged manifest digest, creates the immutable release, then advances `/current` as its final write.
