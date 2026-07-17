@@ -5,7 +5,7 @@ FROM public.ecr.aws/lambda/microvms:al2023-minimal@sha256:05cb9b38d841e7ff1b693d
 # image build — proven live 2026-07-11). The exact asset is mirrored to the public pairputer launch
 # bucket: immutable, still sha256-verified below. Upstream: BtbN/FFmpeg-Builds
 # autobuild-2026-07-11-13-13 (GPL, linuxarm64).
-ARG FFMPEG_URL=https://pairputer-launch-932930471665.s3.amazonaws.com/third-party/ffmpeg/ffmpeg-n8.1.2-22-g94138f6973-linuxarm64-gpl-8.1.tar.xz
+ARG FFMPEG_URL=https://pairputer-launch.s3.amazonaws.com/third-party/ffmpeg/ffmpeg-n8.1.2-22-g94138f6973-linuxarm64-gpl-8.1.tar.xz
 ARG FFMPEG_SHA256=0ea95cba11d0949bff8037ab4701770267814afe0be29e96cce2487151a1257e
 ARG NOVNC_VERSION=1.5.0
 ARG NOVNC_SHA256=6a73e41f98388a5348b7902f54b02d177cb73b7e5eb0a7a0dcf688cc2c79b42a

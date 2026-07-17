@@ -111,6 +111,11 @@ else
   # against NotPrincipal+Deny) and adds no real protection over the implicit deny while risking a
   # policy that locks out CloudFormation itself. Verified below: anonymous/browser/CLI GET -> 403;
   # CloudFormation create-stack reads the root + nested templateURLs + the DOOM build-context zip.
+  # templates/ + microvm-image/ are CloudFormation-only (the security constraint). third-party/ is a
+  # PUBLIC mirror of open-source build deps (FFmpeg etc.) that the MicroVM IMAGE BUILD fetches with a
+  # plain curl — it has no aws:CalledVia context, so it MUST be public-read, or the image build fails
+  # "did not stabilize" with no boot logs (exactly the agent-doom/DOOM failure: the Dockerfile FFMPEG_URL
+  # pointed here and got 403/NoSuchBucket). These assets are non-sensitive public tarballs.
   POLICY=$(cat <<EOF
 {
   "Version": "2012-10-17",
@@ -127,6 +132,13 @@ else
       "Condition": {
         "ForAnyValue:StringEquals": { "aws:CalledVia": "cloudformation.amazonaws.com" }
       }
+    },
+    {
+      "Sid": "PublicReadThirdPartyMirror",
+      "Effect": "Allow",
+      "Principal": "*",
+      "Action": "s3:GetObject",
+      "Resource": "arn:aws:s3:::${LAUNCH_BUCKET}/third-party/*"
     }
   ]
 }
@@ -135,6 +147,22 @@ EOF
 fi
 echo "==> Attaching bucket policy..."
 aws s3api put-bucket-policy --bucket "${LAUNCH_BUCKET}" --policy "${POLICY}" >/dev/null
+
+# 2b. Mirror the third-party build deps the capsule image builds fetch by URL (FFmpeg linuxarm64).
+# The Dockerfiles curl these from ${LAUNCH_BUCKET}/third-party/ during the AWS MicroVM image build.
+# Copy from the canonical public source (the prior launch bucket) so a fresh publish is self-contained.
+PAIRPUTER_THIRDPARTY_SOURCE="${PAIRPUTER_THIRDPARTY_SOURCE:-s3://sympatry-launch-932930471665/third-party/}"
+FFMPEG_KEY="third-party/ffmpeg/ffmpeg-n8.1.2-22-g94138f6973-linuxarm64-gpl-8.1.tar.xz"
+if ! aws s3 ls "s3://${LAUNCH_BUCKET}/${FFMPEG_KEY}" >/dev/null 2>&1; then
+  echo "==> Mirroring third-party build deps to s3://${LAUNCH_BUCKET}/third-party/ ..."
+  if aws s3 cp "${PAIRPUTER_THIRDPARTY_SOURCE}ffmpeg/$(basename "${FFMPEG_KEY}")" \
+       "s3://${LAUNCH_BUCKET}/${FFMPEG_KEY}" --only-show-errors 2>/dev/null; then
+    echo "    mirrored FFmpeg."
+  else
+    echo "    WARNING: could not mirror FFmpeg from ${PAIRPUTER_THIRDPARTY_SOURCE}; set PAIRPUTER_THIRDPARTY_SOURCE" >&2
+    echo "    to a source bucket that has third-party/ffmpeg/, or the capsule image build will 403 on curl." >&2
+  fi
+fi
 
 # 3. Package: rewrite nested TemplateURLs to absolute URLs in THIS bucket, then upload.
 echo "==> Packaging templates (nested TemplateURLs -> absolute S3 URLs in the launch bucket)..."
