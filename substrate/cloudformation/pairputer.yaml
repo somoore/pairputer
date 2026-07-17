@@ -201,6 +201,15 @@ Parameters:
       the admin and instead use the CreateSuperAdmin* stack-output commands locally. No password is ever
       stored in this template.
     AllowedPattern: '^$|^[^@]+@[^@]+\.[^@]+$'
+  CreateSuperAdminUser:
+    Type: String
+    Default: "true"
+    AllowedValues: ["true", "false"]
+    Description: >-
+      When true (default) and SuperAdminEmail is set, the stack creates the super-admin user and Cognito
+      emails the branded temporary-password invite — a console 1-click deploy is log-in-ready with no CLI
+      step. deploy.sh sets this false (it creates the admin itself, using a Secrets Manager password for
+      its headless path).
   WebAclArn:
     Type: String
     Default: ""
@@ -435,6 +444,7 @@ Resources:
         CodexCallbackUrl: !Ref CodexCallbackUrl
         CognitoDomainPrefix: !Ref CognitoDomainPrefix
         SuperAdminEmail: !Ref SuperAdminEmail
+        CreateSuperAdminUser: !Ref CreateSuperAdminUser
 
   SessionsStack:
     Type: AWS::CloudFormation::Stack

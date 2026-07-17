@@ -11,11 +11,20 @@ Parameters:
   SuperAdminEmail:
     Type: String
     Default: ""
-    Description: Optional email address for the first admin user. The template does not create or email a password; see stack outputs for CLI commands.
+    Description: Optional email address for the first admin user. When set (and CreateSuperAdminUser=true, the default), the stack creates this user and Cognito emails them the branded temporary-password invite — a pure 1-click deploy with no CLI step. Leave blank for a bare deploy.
     AllowedPattern: '^$|^[^@]+@[^@]+\.[^@]+$'
+  CreateSuperAdminUser:
+    Type: String
+    Default: "true"
+    AllowedValues: ["true", "false"]
+    Description: Create the super-admin user in-stack (sends the branded invite email). The default true is what makes a console 1-click deploy log-in-ready. deploy.sh sets this false because it creates the admin itself (its headless path uses a Secrets Manager password instead of an emailed one).
 
 Conditions:
   HasSuperAdminEmail: !Not [!Equals [!Ref SuperAdminEmail, ""]]
+  # Create the in-stack admin only when an email is set AND the caller wants the template to own it.
+  CreateAdminUser: !And
+    - !Not [!Equals [!Ref SuperAdminEmail, ""]]
+    - !Equals [!Ref CreateSuperAdminUser, "true"]
 
 Resources:
   UserPool:
@@ -25,10 +34,12 @@ Resources:
       AutoVerifiedAttributes: [email]
       UsernameAttributes: [email]
       # Cognito's built-in email sender (COGNITO_DEFAULT): zero setup, ~50 emails/day, ideal for the
-      # one-time admin invite. deploy.sh creates the super-admin WITHOUT --message-action SUPPRESS, so
-      # Cognito generates a temporary password, emails it here, and puts the account in
-      # FORCE_CHANGE_PASSWORD — the admin sets their own permanent password on first hosted-UI login.
-      # No password is ever stored in CloudFormation or chosen by the operator.
+      # one-time admin invite. When the stack creates SuperAdminUser (CreateAdminUser condition — the
+      # console 1-click default), Cognito generates a temporary password, emails THIS template, and puts
+      # the account in FORCE_CHANGE_PASSWORD; the admin sets their own permanent password on first
+      # hosted-UI login. No password is ever stored in CloudFormation or chosen by the operator.
+      # (deploy.sh sets CreateSuperAdminUser=false and creates the admin itself — headless path stores a
+      # Secrets Manager password; interactive path sends this same email.)
       EmailConfiguration:
         EmailSendingAccount: COGNITO_DEFAULT
       AdminCreateUserConfig:
@@ -100,6 +111,36 @@ Resources:
       UserPoolId: !Ref UserPool
       GroupName: SuperAdmins
       Description: First administrator group for this pairputer deployment.
+
+  # Create the super-admin AT DEPLOY TIME so a pure console 1-click "just works": creating a
+  # UserPoolUser without MessageAction:SUPPRESS makes Cognito send the pool's InviteMessageTemplate
+  # (the branded email above) with {username}+{####}, and lands the account in FORCE_CHANGE_PASSWORD.
+  # No CLI step. Conditional on HasSuperAdminEmail — an empty email skips this (bare deploy, no admin).
+  # (deploy.sh still uses --message-action SUPPRESS + Secrets Manager for its HEADLESS path; that path
+  # sets PAIRPUTER_SKIP_ADMIN_CREATE-equivalent by leaving SuperAdminEmail empty here is NOT how it
+  # works — deploy.sh passes the email, so guard against a double-create: see DeletionPolicy note.)
+  SuperAdminUser:
+    Type: AWS::Cognito::UserPoolUser
+    Condition: CreateAdminUser
+    # Retain: if the stack is torn down and redeployed with the same email, don't fight an existing user.
+    DeletionPolicy: Retain
+    Properties:
+      UserPoolId: !Ref UserPool
+      Username: !Ref SuperAdminEmail
+      DesiredDeliveryMediums: [EMAIL]
+      UserAttributes:
+        - Name: email
+          Value: !Ref SuperAdminEmail
+        - Name: email_verified
+          Value: "true"
+
+  SuperAdminUserInGroup:
+    Type: AWS::Cognito::UserPoolUserToGroupAttachment
+    Condition: CreateAdminUser
+    Properties:
+      UserPoolId: !Ref UserPool
+      GroupName: !Ref SuperAdminGroup
+      Username: !Ref SuperAdminUser
 
   UserPoolDomain:
     Type: AWS::Cognito::UserPoolDomain

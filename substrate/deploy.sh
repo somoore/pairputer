@@ -455,6 +455,11 @@ PARAMETER_OVERRIDES=(
   "RuntimeName=${RUNTIME_NAME}"
   "CodexCallbackUrl=${CODEX_CALLBACK_URL}"
   "SuperAdminEmail=${SUPER_ADMIN_EMAIL}"
+  # deploy.sh owns admin creation (below): it checks existence and, for the headless path, sets a
+  # Secrets Manager password instead of an emailed one. So tell the template NOT to create the user
+  # in-stack — otherwise both would try, and the template's emailed temp-password would race the SM
+  # password. (A console 1-click leaves this at the template default "true" and gets the emailed invite.)
+  "CreateSuperAdminUser=false"
   "NetworkingMode=${NETWORKING_MODE}"
   "VpcId=${VPC_ID}"
   "PrivateSubnetIds=${PRIVATE_SUBNET_IDS}"
