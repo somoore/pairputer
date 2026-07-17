@@ -553,7 +553,9 @@ run_deploy() {
 # CloudFormation update with "did not stabilize" / a transient service exception; a full-stack
 # update makes CloudFormation re-poll it. In practice it succeeds on a second pass, so retry ONCE
 # but only for that specific transient image signature — never mask a real config error.
-DEPLOY_MAX_ATTEMPTS="${PAIRPUTER_DEPLOY_RETRIES:-1}"   # extra attempts after the first
+DEPLOY_MAX_ATTEMPTS="${PAIRPUTER_DEPLOY_RETRIES:-2}"   # extra attempts after the first (image can be
+                                                      # quite flaky on first create; a real config error
+                                                      # fails identically each pass and still surfaces)
 attempt=0
 while :; do
   set +e
@@ -581,6 +583,21 @@ while :; do
         --query "StackEvents[?contains(ResourceStatusReason,'did not stabilize') || contains(LogicalResourceId,'Microvm') || contains(LogicalResourceId,'DoomImage')].ResourceStatusReason" \
         --output text 2>/dev/null | grep -qiE "stabilize|Microvm|DoomImage"; then
       IMAGE_FLAKE="true"
+    else
+      # CRITICAL: the "did not stabilize" reason lives in the NESTED DoomImageStack's events, not the
+      # ROOT stack's (the root only shows the generic "Embedded stack ... was not successfully
+      # created"). So also scan the DoomImageStack nested stack directly — without this, the retry
+      # never fires for a nested-stack MicroVM flake and a transient failure aborts the whole deploy.
+      DOOM_NESTED_ARN="$(aws cloudformation describe-stack-resource \
+        --stack-name "${STACK_NAME}" --logical-resource-id DoomImageStack --region "${AWS_REGION}" \
+        --query 'StackResourceDetail.PhysicalResourceId' --output text 2>/dev/null || true)"
+      if [[ -n "${DOOM_NESTED_ARN}" && "${DOOM_NESTED_ARN}" != "None" ]]; then
+        if aws cloudformation describe-stack-events --stack-name "${DOOM_NESTED_ARN}" --region "${AWS_REGION}" \
+            --query "StackEvents[?contains(ResourceStatusReason,'did not stabilize')].ResourceStatusReason" \
+            --output text 2>/dev/null | grep -qi "stabilize"; then
+          IMAGE_FLAKE="true"
+        fi
+      fi
     fi
   fi
 
@@ -588,9 +605,20 @@ while :; do
     attempt=$((attempt + 1))
     echo "==> Deploy hit the flaky MicroVM image resource; retrying (attempt ${attempt}/${DEPLOY_MAX_ATTEMPTS})..." >&2
     echo "    (the AWS::Lambda::MicrovmImage resource is slow/flaky; a second pass usually stabilizes it)" >&2
-    # If the stack is mid-rollback, let it settle before re-deploying.
+    # Let any in-flight rollback settle first.
     aws cloudformation wait stack-rollback-complete --stack-name "${STACK_NAME}" --region "${AWS_REGION}" >/dev/null 2>&1 || true
     aws cloudformation wait stack-update-complete   --stack-name "${STACK_NAME}" --region "${AWS_REGION}" >/dev/null 2>&1 || true
+    # A FAILED FIRST CREATE leaves the stack ROLLBACK_COMPLETE, which cannot be updated — only
+    # deleted. So `aws cloudformation deploy` on the next pass would fail with "cannot be updated".
+    # Delete it before retrying so the retry is a clean re-create. (An UPDATE failure lands in
+    # UPDATE_ROLLBACK_COMPLETE, which IS updatable, so we only delete the create-failed state.)
+    STACK_STATE="$(aws cloudformation describe-stacks --stack-name "${STACK_NAME}" --region "${AWS_REGION}" \
+      --query 'Stacks[0].StackStatus' --output text 2>/dev/null || true)"
+    if [[ "${STACK_STATE}" == "ROLLBACK_COMPLETE" || "${STACK_STATE}" == "ROLLBACK_FAILED" ]]; then
+      echo "    Stack is ${STACK_STATE} (failed first create); deleting it before the clean re-create..." >&2
+      aws cloudformation delete-stack --stack-name "${STACK_NAME}" --region "${AWS_REGION}" >/dev/null 2>&1 || true
+      aws cloudformation wait stack-delete-complete --stack-name "${STACK_NAME}" --region "${AWS_REGION}" >/dev/null 2>&1 || true
+    fi
     continue
   fi
 
