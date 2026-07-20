@@ -27,24 +27,31 @@ The bundled reference capsule is the **Pairputer Workbench** — a disposable, r
 
 ## Deploy it
 
-Two paths. Both land in your account. **`us-east-1` is the tested & recommended region.** The template
+There are **two completely separate ways to deploy** — pick ONE, not both:
+
+- **Path A (recommended): the 1-click CloudFormation launch.** No tools, no clone, no Docker — everything
+  builds in your account from signed public images.
+- **Path B: `substrate/deploy.sh`.** A full from-source CLI deploy for developers who want to build the
+  images themselves or customize. It replaces the 1-click; never run it on top of one.
+
+Both land in your account. **`us-east-1` is the tested & recommended region.** The template
 isn't hard-locked to it, but other regions are unverified and on-your-own: the CloudFront-scope WAF only
 exists in `us-east-1` (deploy elsewhere and it's skipped unless you pass your own `WebAclArn`), and
 Bedrock AgentCore + Lambda MicroVM availability varies by region.
 
-### 🚀 1-click — CloudFormation (fastest)
+### 🚀 Path A — 1-click CloudFormation launch (recommended)
 
 [![Launch Stack](https://s3.amazonaws.com/cloudformation-examples/cloudformation-launch-stack.png)](https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/create/review?templateURL=https://pairputer-launch.s3.amazonaws.com/templates/pairputer.yaml&stackName=pairputer)
 
-Click the button, review the parameters, deploy. **Zero inputs required** — it defaults to pairputer's signed public images and the Pairputer Workbench capsule. Behind the scenes it stands up Cognito, the MCP control plane (Bedrock AgentCore), a private CloudFront-fronted data plane, and builds the Workbench MicroVM image in your account.
+Click the button, enter **one input — your email address** (it becomes the super-admin account and receives the invite), and deploy. Everything else defaults to pairputer's signed public images and the Pairputer Workbench capsule. Behind the scenes it stands up Cognito, the MCP control plane (Bedrock AgentCore), a private CloudFront-fronted data plane, and builds the Workbench MicroVM image in your account.
 
 After it finishes, you get an **admin invite email** with your temporary password and the exact steps to connect Codex — including a one-line setup command. Then `codex mcp login pairputer` and play.
 
 *Want to verify the images first?* Run [`scripts/verify-images.sh`](./scripts/verify-images.sh) — an offline cosign signature + SLSA check.
 
-### 🛠️ CLI — `deploy.sh` (for building from source / customizing)
+### 🛠️ Path B — `deploy.sh` (from-source CLI, separate from the 1-click)
 
-Use this when you want to **build the images from source**, use **private ECR**, or have Codex wired up **automatically**:
+Use this **instead of** the 1-click when you want to **build the images from source**, use **private ECR**, or have Codex wired up **automatically**:
 
 ```bash
 git clone https://github.com/somoore/pairputer && cd pairputer
