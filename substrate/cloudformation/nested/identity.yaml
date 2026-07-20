@@ -47,9 +47,10 @@ Resources:
         InviteMessageTemplate:
           EmailSubject: "Your pairputer admin login"
           # HTML invite. Cognito substitutes {username} + {####} (temp password) ONLY — it cannot inject the
-          # live McpEndpoint/CodexClientId, so those stay as copy-from-Outputs placeholders. The OAuth callback
-          # is now registered in-stack at deploy time (AgentCoreStack CallbackRegistration), so end users need
-          # NO AWS credentials and NO redirect_uri dance — just paste two Output values and log in.
+          # live McpEndpoint, so that stays a copy-from-Outputs step. Connection story: add the pairputer
+          # connector in ChatGPT (web) and Claude (web) with the McpEndpoint URL; each covers that product's
+          # web/desktop/mobile apps and Codex rides the ChatGPT connector. Claude's callbacks are pre-baked;
+          # ChatGPT additionally needs its per-connector callback registered (docs/hosts/chatgpt.md).
           EmailMessage: |
             <div style="margin:0;padding:24px 12px;background:#0b0d12;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#e6e9ef;">
             <div style="max-width:600px;margin:0 auto;background:#12151d;border:1px solid #232838;border-radius:14px;overflow:hidden;">
@@ -57,7 +58,7 @@ Resources:
             <img src="https://pairputer-launch.s3.amazonaws.com/third-party/brand/pairputer-logo-light.png" alt="pairputer" width="210" style="display:block;margin:0 auto;width:210px;max-width:60%;height:auto;border:0;outline:none;" />
 
             <div style="font-size:22px;font-weight:700;margin-top:6px;color:#fff;">Your admin access is ready</div>
-            <div style="font-size:14px;color:#9aa3b5;margin-top:6px;line-height:1.5;">You deployed pairputer and set <b style="color:#e6e9ef;"><span style="color:#e6e9ef;text-decoration:none;">&#8204;{username}&#8204;</span></b> as the first super-admin. Here's your temporary password, then one connection step so Codex can reach your deployment.</div>
+            <div style="font-size:14px;color:#9aa3b5;margin-top:6px;line-height:1.5;">You deployed pairputer and set <b style="color:#e6e9ef;"><span style="color:#e6e9ef;text-decoration:none;">&#8204;{username}&#8204;</span></b> as the first super-admin. Here's your temporary password, then two quick connections so your AI apps can reach your deployment.</div>
             </div>
             <div style="padding:22px 30px 6px;">
             <div style="background:#0e1118;border:1px solid #232838;border-radius:10px;padding:16px 20px;">
@@ -68,15 +69,13 @@ Resources:
             <div style="font-size:12px;color:#9aa3b5;margin-top:10px;line-height:1.5;">Single-use. You'll set your own permanent password on first login.</div>
             </div></div>
             <div style="padding:20px 30px 6px;">
-            <div style="font-size:16px;font-weight:700;color:#fff;">Connect Codex &mdash; one copy-paste, no AWS CLI</div>
-            <div style="font-size:13px;color:#9aa3b5;margin-top:6px;line-height:1.6;">pairputer runs entirely in <b style="color:#e6e9ef;">your own AWS account</b>. The OAuth callback is already registered for you at deploy time, so there's no redirect_uri step &mdash; just point Codex at your endpoint and log in.</div>
+            <div style="font-size:16px;font-weight:700;color:#fff;">Connect ChatGPT + Claude &mdash; covers web, desktop, and mobile (and Codex)</div>
+            <div style="font-size:13px;color:#9aa3b5;margin-top:6px;line-height:1.6;">pairputer runs entirely in <b style="color:#e6e9ef;">your own AWS account</b>. Two connectors cover everything: each product's web, desktop, and mobile apps, and Codex rides the ChatGPT connector.</div>
             <div style="background:#0e1118;border:1px solid #232838;border-radius:10px;padding:18px 20px;margin-top:12px;">
-            <div style="font-size:13px;color:#9aa3b5;line-height:1.6;"><b style="color:#e6e9ef;">1.</b> In the AWS console, open your stack in <b style="color:#e6e9ef;">CloudFormation</b>, click the <b style="color:#e6e9ef;">Outputs</b> tab, and find the output whose <b style="color:#e6e9ef;">Key</b> is exactly <code style="color:#c8f7e5;background:#0e1118;padding:1px 5px;border-radius:4px;">CodexConfigToml</code>.</div>
-            <div style="font-size:12px;color:#6b7385;margin-top:6px;line-height:1.6;">Its Value is the whole config block below, but with your <b style="color:#9aa3b5;">real</b> endpoint + client id already filled in &mdash; both public connection info, no secrets.</div>
-            <div style="font-size:13px;color:#9aa3b5;margin-top:12px;line-height:1.6;"><b style="color:#e6e9ef;">2.</b> Copy the <b style="color:#e6e9ef;">Value</b> of that <code style="color:#c8f7e5;">CodexConfigToml</code> output <b style="color:#e6e9ef;">verbatim</b> into <code style="color:#c8f7e5;">~/.codex/config.toml</code>.</div>
-            <div style="background:#241a1a;border:1px solid #5a3535;border-radius:8px;padding:12px 14px;margin-top:10px;font-family:ui-monospace,Menlo,monospace;font-size:12px;color:#8a7a7a;line-height:1.55;word-break:break-all;"><div style="font-size:11px;font-weight:700;color:#e08a8a;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;font-family:-apple-system,Helvetica,Arial,sans-serif;">&#9888; Shape only &mdash; do NOT copy this. The &hellip; are truncations. Copy the real value from Outputs.</div>[mcp_servers.pairputer]<br>url = "https:&#8204;//bedrock-agentcore&hellip;/invocations?qualifier=DEFAULT"<br>scopes = ["openid", "pairputer-mcp/invoke"]<br>[mcp_servers.pairputer.oauth]<br>client_id = "5qhf&hellip;"</div>
-            <div style="font-size:13px;color:#9aa3b5;margin-top:12px;line-height:1.6;"><b style="color:#e6e9ef;">3.</b> Run <code style="color:#c8f7e5;">codex mcp login pairputer</code> and sign in with the username + temporary password above. That's it &mdash; the callback is already wired.</div>
-            <div style="font-size:12px;color:#6b7385;margin-top:12px;line-height:1.6;">Deployed with <code style="color:#8b93a5;">substrate/deploy.sh</code> instead? Your <code style="color:#8b93a5;">config.toml</code> is already written &mdash; skip to step 3.</div>
+            <div style="font-size:13px;color:#9aa3b5;line-height:1.6;"><b style="color:#e6e9ef;">1.</b> In the AWS console, open your stack in <b style="color:#e6e9ef;">CloudFormation</b>, click the <b style="color:#e6e9ef;">Outputs</b> tab, and copy the Value of <code style="color:#c8f7e5;background:#0e1118;padding:1px 5px;border-radius:4px;">McpEndpoint</code>. That URL is public connection info, no secrets.</div>
+            <div style="font-size:13px;color:#9aa3b5;margin-top:12px;line-height:1.6;"><b style="color:#e6e9ef;">2.</b> <b style="color:#e6e9ef;">Claude (web):</b> Settings &rarr; Connectors &rarr; add a custom connector with that URL. When the login popup appears, sign in with the username + temporary password above. No other steps.</div>
+            <div style="font-size:13px;color:#9aa3b5;margin-top:12px;line-height:1.6;"><b style="color:#e6e9ef;">3.</b> <b style="color:#e6e9ef;">ChatGPT (web):</b> Settings &rarr; Apps &amp; Connectors &rarr; create a connector with the same URL. ChatGPT shows the connector's own callback URL (https:&#8204;//chatgpt.com/connector/oauth/&hellip;) &mdash; register it once with <code style="color:#c8f7e5;">substrate/wire-chatgpt.sh --register-callback '&lt;that url&gt;'</code>, then Connect and log in.</div>
+            <div style="font-size:12px;color:#6b7385;margin-top:12px;line-height:1.6;">Full walkthroughs + troubleshooting: <b style="color:#9aa3b5;">docs/hosts/chatgpt.md</b> and <b style="color:#9aa3b5;">docs/hosts/claude.md</b> in the repo.</div>
             </div></div>
             <div style="padding:18px 30px 8px;"><div style="font-size:14px;color:#e6e9ef;line-height:1.6;">&#128421;&#65039; Once logged in, ask your AI to open the Pairputer Workbench &mdash; a shared Linux desktop streams straight into your chat, and you and the model drive the same live machine.</div></div>
             <div style="padding:18px 30px 24px;border-top:1px solid #232838;"><div style="font-size:12px;color:#6b7385;line-height:1.6;">You're receiving this because your email was set as the pairputer super-admin during a CloudFormation deploy in your AWS account. If you didn't deploy pairputer, you can ignore this &mdash; the account lives only in your AWS account and no password works until it's changed on first login.</div></div>
