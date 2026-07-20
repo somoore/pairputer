@@ -6,7 +6,7 @@ no local proxy, no tunnel.
 
 Two planes:
 
-- **Control plane** - Codex → Cognito (OAuth PKCE) → an MCP server on **Bedrock AgentCore**. It runs,
+- **Control plane** - the chat host (Codex, ChatGPT, or Claude) → Cognito (OAuth PKCE) → an MCP server on **Bedrock AgentCore**. It runs,
   suspends, and resumes the MicroVM, scales the relay, and mints short-lived signed tokens.
 - **Data plane** - a stateful **ECS/Fargate relay** behind **CloudFront + WAF**, reaching an **internal
   ALB** in a private VPC. Video/audio/input flow here; the MicroVM secrets never reach the browser.
@@ -17,24 +17,24 @@ Two planes:
 
 ```mermaid
 flowchart TB
-    subgraph laptop["User's laptop"]
-        subgraph codex["AI chat client (Codex today)"]
+    subgraph laptop["🧑‍💻 User's machine"]
+        subgraph host["AI chat client · Codex / ChatGPT / Claude"]
             widget["<b>Widget</b> (MCP-UI component)<br/>sandboxed - cannot fetch cross-origin<br/>owns Freeze / Thaw / Trash<br/>refreshes tokens via MCP"]
             player["<b>Player iframe</b> (served by relay)<br/>EventSource /video → WebCodecs canvas<br/>EventSource /audio → Opus / WebAudio<br/>batched POST /input (no browser WebSocket)"]
             widget -- "frame escape hatch<br/>?t=session token" --> player
         end
     end
 
-    subgraph acct["User's AWS account · us-east-1"]
+    subgraph acct["☁️ User's AWS account · us-east-1"]
         direction TB
-        pool["<b>Cognito</b><br/>hosted UI · PKCE client (no secret)<br/>admin-created users · regional WAF"]
-
         subgraph ctrl["Control plane"]
+            pool["<b>Cognito</b><br/>hosted UI · PKCE clients (no secret)<br/>admin-created users · regional WAF"]
             server["<b>MCP server</b> - Bedrock AgentCore Runtime<br/>ARM64 container · IAM role (no static keys)<br/>run / suspend / resume / terminate MicroVM<br/>scale Fargate relay · sign HMAC + CloudFront policy"]
         end
 
-        sessions["<b>DynamoDB</b> SessionTable<br/>per-user session · frozen state · TTL"]
+        sessions["<b>DynamoDB</b> SessionTable<br/>per-tenant session · frozen state · TTL"]
         secrets["<b>Secrets Manager</b><br/>relay HMAC · origin secret · CloudFront key"]
+        ssm["<b>SSM Parameter Store</b><br/>immutable capsule manifests + releases<br/>atomic /current pointer"]
 
         subgraph data["Data plane"]
             cf["<b>CloudFront + WAF</b> (public front door)<br/>requires signed URL · injects origin secret<br/>GET/HEAD/OPTIONS + POST"]
@@ -44,23 +44,35 @@ flowchart TB
             nat["egress NAT<br/>fck-nat (~$3/mo) or NAT GW (~$32/mo)"]
         end
 
-        subgraph capsule["Capsule - Lambda MicroVM (optional)"]
-            vm["<b>Pairputer Workbench</b> reference capsule<br/>Xvnc + shared Linux desktop<br/>video :6903 · audio :6902 · input :6904"]
+        subgraph capsule["Capsule - Lambda MicroVM (bundled by default)"]
+            vm["<b>Pairputer Workbench</b> reference capsule<br/>Xvnc + shared Linux desktop<br/>video :6903 · audio :6902 · input :6904<br/>agent bridge :6905 (typed tools)"]
         end
     end
 
     widget == "MCP tool call (Cognito bearer)" ==> server
-    widget -- "OAuth PKCE (token in OS keyring)" --> pool
+    widget -- "OAuth PKCE login" --> pool
     server -- "Run / Suspend / Resume" --> vm
     server -- "ECS UpdateService + health wait" --> relay
     server <-- "session mapping" --> sessions
     server -. "sign token + CF policy" .-> secrets
+    server -. "tag discovery + manifest read" .-> ssm
     player -- "video / audio / POST input · ?t=token" --> cf
     cf ==> vo ==> alb --> relay
     relay -. "verify token + freshness" .-> sessions
     relay -. "verify origin secret" .-> secrets
     relay == "WS + JWE to :6902/6903/6904" ==> vm
-    relay -. "outbound" .-> nat
+
+    classDef client fill:#ede9fe,stroke:#7c5cff,stroke-width:2px,color:#1e1b4b
+    classDef control fill:#dbeafe,stroke:#2563eb,stroke-width:2px,color:#0c1e3e
+    classDef state fill:#fef9c3,stroke:#ca8a04,stroke-width:1.5px,color:#422006
+    classDef dataplane fill:#dcfce7,stroke:#16a34a,stroke-width:2px,color:#052e16
+    classDef vmnode fill:#ffe4e6,stroke:#e11d48,stroke-width:2px,color:#4c0519
+
+    class widget,player client
+    class server,pool control
+    class sessions,secrets,ssm state
+    class cf,vo,alb,relay,nat dataplane
+    class vm vmnode
 ```
 
 ---
@@ -78,7 +90,8 @@ change what gets built:
 
 Nested stacks: `identity` (Cognito), `security` (secrets), `sessions` (DynamoDB), `relay-network`
 (VPC/NAT), `relay` (ECS/ALB/CloudFront), `cloudfront-waf`, `agentcore` (MCP runtime), plus
-`microvm-image` (capsule build) and `image-copy` (private-mode copy) when applicable.
+`capsules/nested/capsule-stack.yaml` (the bundled Workbench build - the SAME template every cartridge
+capsule uses) and `image-copy` (private-mode verify-and-copy) when applicable.
 
 **In-stack self-healing custom resources** (so the 1-click console path works with zero external tooling):
 
@@ -87,7 +100,12 @@ Nested stacks: `identity` (Cognito), `security` (secrets), `sessions` (DynamoDB)
 - **ALB↔CloudFront-origin SG wiring** (`relay`) - CloudFront VPC-origin traffic arrives from an AWS-created
   `CloudFront-VPCOrigins-Service-SG` (not the VPC CIDR), so a custom resource opens the internal ALB to that
   SG after the VPC origin exists. Without it the data plane is silently dead (requests never reach the ALB).
-- **MicroVM reaper** (`microvm-image`) - on stack **delete**, terminates every MicroVM on the image before
+- **Manifest stager + release publisher** (`capsule-stack`) - the stager reads the validated
+  `capsule.manifest.json` out of the build-context zip in S3 and stages it as chunked immutable SSM
+  parameters; after the image version is ACTIVE the publisher commits an immutable release record and
+  atomically advances `/pairputer/capsules/<id>/current`. This is what lets a pure console deploy
+  register a capsule with an any-size manifest and zero local tooling.
+- **MicroVM reaper** (`capsule-stack`) - on stack **delete**, terminates every MicroVM on the image before
   CloudFormation deletes the image, since a live/suspended VM pins it and would otherwise wedge teardown.
 - **OAuth callback registrar** (`agentcore`) - computes the exact `redirect_uri` Codex will request
   (`base64url_nopad(SHA256(McpEndpoint)[:9])` appended to `http://localhost:5555/callback/`) and merges it
@@ -98,8 +116,8 @@ Nested stacks: `identity` (Cognito), `security` (secrets), `sessions` (DynamoDB)
 
 ## Planes in detail
 
-**Control plane.** Codex authenticates to Cognito (authorization-code + PKCE; tokens in the OS keyring)
-and calls the MCP server on Bedrock AgentCore. A tool call returns an opening payload so the widget
+**Control plane.** The chat host authenticates to Cognito (authorization-code + PKCE; Codex keeps its
+tokens in the OS keyring) and calls the MCP server on Bedrock AgentCore. A tool call returns an opening payload so the widget
 renders immediately; on open it calls `pairputer_session`, and AgentCore - via its IAM execution role,
 no static keys - loads/creates the caller's DynamoDB session, runs/resumes the MicroVM, scales the
 Fargate relay to 1, waits for a healthy ALB target, and returns a short-lived HMAC relay token plus
@@ -107,7 +125,7 @@ CloudFront signed-URL params.
 
 **Data plane.** The widget can't fetch cross-origin (the sandbox blocks it before CSP applies), so it
 **embeds** the relay-served player iframe. The player is same-origin to the relay, so `EventSource`
-works for video and audio. Input is **not** a browser WebSocket - Codex's widget CSP allows only
+works for video and audio. Input is **not** a browser WebSocket - the host widget CSP allows only
 `https://` on `connect-src` - so the player batches keyboard/mouse events into `POST /input`. CloudFront
 rejects unsigned/expired traffic at the edge; the relay verifies the HMAC token + DynamoDB session
 freshness on every request, mints the MicroVM JWE server-side, and holds the persistent upstream
@@ -128,7 +146,7 @@ data plane. The Cognito token never reaches the relay. Full detail - lifetimes, 
 ```mermaid
 sequenceDiagram
     autonumber
-    participant W as Widget (Codex)
+    participant W as Widget (chat host)
     participant C as Cognito
     participant A as AgentCore (MCP)
     participant P as Player iframe
@@ -142,7 +160,7 @@ sequenceDiagram
     Note over W,A: Every MCP call carries the Cognito bearer
     W->>A: pairputer_session (Authorization: Bearer …)
     A->>C: fetch JWKS via OIDC discovery URL
-    A-->>A: authorizer verifies signature · issuer · expiry · client (AllowedClients)
+    A-->>A: authorizer verifies signature · issuer · expiry ·<br/>client (AllowedClients) · scope (AllowedScopes)
     A-->>A: container re-verifies signature · iss · exp vs JWKS (defense-in-depth)
     A-->>W: opening payload +<br/>HMAC relay token (15-min TTL, channel-scoped) +<br/>CloudFront signed-URL params (same exp)
 
