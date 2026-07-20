@@ -1999,12 +1999,14 @@ $('mute').onclick = () => {
     await new Promise(r => setTimeout(r, 100));
     sc = readToolData();
   }
-  if (!sc) {
-    // Remount with no re-delivered toolOutput (display-mode transition, host-side remount): the
-    // widgetState snapshot names the session's capsule/nonce, which is enough for refreshSession
-    // to re-mint a token for the RIGHT capsule. Never a mode request here (no gesture).
+  // Remount (display-mode transition, host-side remount) or a suspended card whose replayed
+  // toolOutput carries no imageId: the widgetState snapshot names the session's capsule/nonce, which
+  // is enough for refreshSession/thaw to target the RIGHT capsule. With MULTIPLE capsules deployed an
+  // empty imageId makes those tools error ("multiple capsules — pass image_id explicitly"), so recover
+  // it whenever it's still empty — not only when sc is absent. Never a mode request here (no gesture).
+  if (!imageId || !sc) {
     const ws = host.getWidgetState();
-    if (ws && ws.imageId) { imageId = String(ws.imageId); openNonce = ws.openNonce ? String(ws.openNonce) : openNonce; }
+    if (ws && ws.imageId) { imageId = imageId || String(ws.imageId); openNonce = ws.openNonce ? String(ws.openNonce) : openNonce; }
   }
   applySession(sc);
   let bootSession = sc || null;
