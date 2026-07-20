@@ -37,6 +37,21 @@ new-host work doesn't re-learn them (sources: CLAUDE.md walls, blog2.md).
 `substrate/deploy.sh` wires `~/.codex/config.toml` automatically; else `substrate/wire-codex.sh`.
 Then `codex mcp login pairputer`.
 
+For a **console 1-click** deploy (no CLI), paste the stack's `McpFullEndpoint` output into
+`~/.codex/config.toml` and run `codex mcp login pairputer`. The output is a `[mcp_servers.pairputer]`
+block - real multi-line TOML.
+
+> **Newline gotcha (cost a real debugging session):** the AWS CloudFormation console flattens the
+> copied `McpFullEndpoint` value onto ONE line. Pasting that is invalid TOML, so Codex fails to parse
+> `config.toml` and silently shows NO MCP connectors at all (not just pairputer). Put each
+> `key = value` and each `[…]` table header back on its own line. The invite email now warns about this.
+
+> **Codex ↔ ChatGPT surface (observed 2026-07-17, mechanism unverified):** with the pairputer block in
+> `~/.codex/config.toml`, the `pairputer` connector was also visible under ChatGPT - OpenAI appears to
+> have converged the Codex/ChatGPT app surface. Not independently confirmed here; the config file is
+> still the Codex source of truth. ChatGPT's own connector setup ([`chatgpt.md`](./chatgpt.md)) uses the
+> `ChatGPTClientId`, not the Codex one.
+
 ## E2E checklist (regression gate for any MCP-layer change)
 
 1. `codex mcp login pairputer` (or existing session) → `open pairputer` / `play_capsule`.

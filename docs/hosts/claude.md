@@ -49,13 +49,26 @@ All facts below are empirically proven (live, human-confirmed 2026-07-09: video 
 
 1. `substrate/wire-claude.sh` - verifies the discovery chain and prints the values below (no
    registration step; callbacks are baked in at deploy time).
-2. Claude → Settings → Connectors → **Add custom connector**:
-   - URL = the `McpEndpoint` stack output
-   - OAuth Client ID = the `ClaudeClientId` stack output (no secret)
-3. Connect → sign in via the Cognito hosted UI → open a **new** chat → "open pairputer" /
-   `play_capsule`.
+2. In claude.ai: **Settings → Customize → Connectors** → **Add** (top-right) → **Add custom
+   connector**. (The old *Settings → Connectors* path now redirects here - "Connectors have moved to
+   Customize".) Fill:
+   - **Name** = `pairputer`
+   - **Remote MCP server URL** = the `McpEndpoint` stack output (the full
+     `https://bedrock-agentcore.../invocations?qualifier=DEFAULT` URL)
+   - **Advanced settings → OAuth Client ID** = the `ClaudeClientId` stack output. Leave **OAuth
+     Client Secret** BLANK - it's a public PKCE client.
+3. **Add** → the connector appears with a **Connect** button → **Connect** → sign in on the Cognito
+   hosted UI with your super-admin email + the temp password from the invite email (first login
+   forces a permanent password) → it auto-redirects back (callback is pre-registered) → open a
+   **new** chat → "open pairputer" / `play_capsule`.
 
-Reconnect UX (shown by the widget on auth expiry): Settings → Connectors → pairputer → Reconnect.
+Reconnect UX (shown by the widget on auth expiry): Settings → Customize → Connectors → pairputer →
+Reconnect.
+
+> Verified 2026-07-17 via a fresh 1-click deploy: the Add-custom-connector modal wants exactly Name +
+> URL + Client ID (no secret); Connect launches the Cognito login at
+> `pairputer-<accountid>.auth.<region>.amazoncognito.com` with `redirect_uri=…/api/mcp/auth_callback`
+> already accepted.
 
 ## E2E checklist (regression gate for any MCP-layer or widget-bridge change)
 
