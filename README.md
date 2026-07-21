@@ -27,25 +27,19 @@ The bundled reference capsule is the **Pairputer Workbench**: a disposable, resu
 
 ## Deploy it
 
-There are **two completely separate ways to deploy**. Pick ONE, not both:
-
-- **Path A (recommended): the 1-click CloudFormation launch.** No tools, no clone, no Docker. Everything
-  builds in your account from signed public images.
-- **Path B: `substrate/deploy.sh`.** A full from-source CLI deploy for developers who want to build the
-  images themselves or customize. It replaces the 1-click; never run it on top of one.
-
-Both land in your account. **`us-east-1` is the tested and recommended region.** The template isn't
-hard-locked to it, but other regions are unverified and you're on your own there: the CloudFront-scope WAF
-only exists in `us-east-1` (deploy elsewhere and it's skipped unless you pass your own `WebAclArn`), and
-Bedrock AgentCore + Lambda MicroVM availability varies by region.
-
-### 🚀 Path A - 1-click CloudFormation launch (recommended)
+**One click, in `us-east-1`.** No tools, no clone, no Docker - everything builds in your account from
+signed public images.
 
 [![Launch Stack](https://s3.amazonaws.com/cloudformation-examples/cloudformation-launch-stack.png)](https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/create/review?templateURL=https://pairputer-launch.s3.amazonaws.com/templates/pairputer.yaml&stackName=pairputer)
 
 Click the button, enter **one input: your email address** (it becomes the super-admin account and receives the invite), and deploy. Everything else defaults to pairputer's signed public images and the Pairputer Workbench capsule. Behind the scenes it stands up Cognito, the MCP control plane (Bedrock AgentCore), a private CloudFront-fronted data plane, and builds the Workbench MicroVM image in your account.
 
 After it finishes, you get an **admin invite email** with your temporary password. Then add the pairputer connector in ChatGPT (web) and Claude (web) using your stack's `McpEndpoint` output (see [`docs/hosts/`](./docs/hosts/)) and play.
+
+**`us-east-1` is the tested and recommended region.** The template isn't hard-locked to it, but other
+regions are unverified and you're on your own there: the CloudFront-scope WAF only exists in `us-east-1`
+(deploy elsewhere and it's skipped unless you pass your own `WebAclArn`), and Bedrock AgentCore + Lambda
+MicroVM availability varies by region.
 
 *Want to verify the images first?* Run [`scripts/verify-images.sh`](./scripts/verify-images.sh), an offline cosign signature + SLSA check.
 
@@ -54,21 +48,12 @@ a complete inventory of every AWS resource and IAM role the 1-click deploys (eac
 CloudFormation source) plus honest daily/weekly/monthly cost estimates. TL;DR: roughly **$55-60/month**
 always-on, about **$0.60 per active hour** of Workbench use, and near $0 while Frozen.
 
-### 🛠️ Path B - `deploy.sh` (from-source CLI, separate from the 1-click)
-
-Use this **instead of** the 1-click when you want to **build the images from source** or use **private ECR**:
-
-```bash
-git clone https://github.com/somoore/pairputer && cd pairputer
-substrate/deploy.sh
-```
-
-`deploy.sh` builds and pushes the MCP and relay images, packages the capsule, deploys the whole nested stack, and creates your super-admin. One command, ready to log in. See [`substrate/README.md`](./substrate/README.md) for options.
-
 ## Options worth knowing
 
-- **Image source** *(first parameter)*: `Public` (default, our signed images) or `Private` (your own private-ECR images; leave the URIs blank to auto-copy ours into your account, verified first).
+Leave every parameter at its default for the standard deploy. Two are worth knowing about:
+
 - **Bundle reference capsule** *(default on)*: ships the Pairputer Workbench so the substrate is useful out of the box. Turn it off for a **bare substrate** with no capsule.
+- **Image source** *(default `Public`)*: the signed public images. Advanced users can set `Private` to run their own private-ECR images (leave the URIs blank to auto-copy ours in, verified first).
 
 ## Remove everything
 
@@ -82,7 +67,23 @@ Cartridge capsule stacks (`pairputer-capsule-*`) are deleted first automatically
 terminates leftover MicroVMs and deletes its image, then the root stack tears down every nested stack
 in dependency order. Nothing is left running, so the bill stops.
 
+## Developing pairputer
+
+The 1-click above is the way to *use* pairputer. To *hack on it* (change the MCP server, the relay, or the
+Workbench and deploy your build from source), clone the repo and run the from-source deploy - it builds
+the MCP + relay images locally, pushes them to your private ECR, and deploys the same stack:
+
+```bash
+git clone https://github.com/somoore/pairputer && cd pairputer
+substrate/deploy.sh   # needs a running Docker daemon; builds from source into your account
+```
+
+This is a **contributor tool, not a second way to deploy** - it stands up the same stack as the 1-click,
+just from images you built. See [`substrate/README.md`](./substrate/README.md) and
+[`docs/local-dev-loop.md`](./docs/local-dev-loop.md) for the inner loop, image modes, and options.
+
 ## Learn more
 
 - [`docs/architecture.md`](./docs/architecture.md): how the pieces fit (diagram)
+- [`docs/1-click-cost.md`](./docs/1-click-cost.md): every resource + IAM role + cost model
 - [`SECURITY.md`](./SECURITY.md): the end-to-end supply-chain and trust model
