@@ -206,8 +206,9 @@ loop (fixes an Xvnc startup race).
 
 An agent-interactive capsule also ships an **agent bridge** (`:6905`, HTTP/JSON per its
 `capsule.yaml`) exposing its typed tools - the Workbench's confined workspace, verified task
-execution, browser/UI semantics, and human-first control epochs. See
-[`capsule-architecture.md`](./capsule-architecture.md) for how a capsule plugs into the substrate.
+execution, browser/UI semantics, and human-first control epochs. Each capsule is its own
+CloudFormation stack (a cartridge): it builds and tags a MicroVM image, and the MCP server
+discovers it at runtime by tag, so adding or removing a capsule needs no control-plane redeploy.
 
 `AWS::Lambda::MicrovmImage` can only be **built in-account** from an S3 context (no ECR/prebuilt import;
 `BaseImageArn` is AWS-managed), so every deployer builds the image. A build-time **readiness gate** keeps
