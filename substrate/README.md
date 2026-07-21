@@ -160,34 +160,3 @@ preview.
 Capsule cartridge stacks are deleted first; each one's reaper terminates leftover MicroVMs and deletes
 its image, then the root stack tears down every nested stack in dependency order. `teardown.sh` is a thin
 wrapper around `remove-cf.sh`.
-
-## Files
-
-```
-cloudformation/
-  pairputer.yaml               root stack: parameters, validation rules, nested-stack orchestration
-  nested/identity.yaml         Cognito pool, hosted UI, host + M2M clients, regional Cognito WAF, invite email
-  nested/security.yaml         relay HMAC secret, ALB origin-header secret, CloudFront signing key + key group
-  nested/sessions.yaml         DynamoDB per-tenant MicroVM session table (TTL + relay-active index)
-  nested/relay-network.yaml    dedicated VPC, subnets, and egress NAT (fck-nat or NAT Gateway)
-  nested/relay.yaml            ECS cluster/service, Fargate task, internal ALB, CloudFront, security groups
-  nested/agentcore.yaml        AgentCore MCP runtime + least-privilege controller role
-  nested/cloudfront-waf.yaml   CloudFront-scope WebACL (AWS managed rules + per-IP rate limit)
-  nested/image-copy.yaml       Private mode: verify-and-copy the signed public images into your ECR
-mcp-server/                    FastMCP server (server.py), widget host (app.html), host profiles, Dockerfile
-stateful-relay/                Node relay: player HTML, video/audio SSE, POST /input, JWE cache (index.mjs)
-lib/aws-env.sh                 shared AWS credential-chain and region resolution (sourced by the scripts)
-build-and-push.sh              build and push the ARM64 MCP image, print a digest-pinned URI
-build-and-push-relay.sh        build and push the ARM64 relay image
-package-capsule-image.sh       package and upload a capsule's MicroVM build context to S3
-deploy.sh                      build images, deploy the WAF, package templates, deploy the root stack, wire Codex
-deploy-capsule.sh              deploy one capsule cartridge stack (build image, stage manifest, publish release)
-deploy-capsule-and-rebind.sh   deploy capsule(s) then bounce the MCP runtime so it re-binds to the new release
-wire-codex.sh                  upsert the stack's endpoint and client id into ~/.codex/config.toml
-wire-chatgpt.sh                register a ChatGPT connector's callback URL on Cognito
-wire-claude.sh                 verify the Claude auth discovery chain and print the connector values
-publish-launch.sh              publish templates and assets to the public launch bucket
-remove-cf.sh                   delete the stack and all nested stacks (optionally the artifact bucket and ECR)
-teardown.sh                    thin wrapper around remove-cf.sh
-local-dev.sh                   run a capsule locally in Docker for a fast iteration loop
-```
