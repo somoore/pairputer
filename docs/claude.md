@@ -74,12 +74,32 @@ Claude desktop and mobile apps automatically.
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| Cognito error page shows `invalid_request` with a client_id that isn't in your pool | The connector pins the OAuth client of a DELETED/replaced stack; "Reconnect" cannot fix it | Fully remove the connector and re-add it with the new stack's `McpEndpoint` (see the [reconnect checklist](./README.md#redeployed-the-stack-reconnect-checklist-verified-live-2026-07-20)) |
+| Cognito error page shows `invalid_request` with a client_id that isn't in your pool | The connector pins the OAuth client of a DELETED/replaced stack; "Reconnect" cannot fix it | Fully remove the connector and re-add it with the new stack's `McpEndpoint` (see [Redeployed the stack?](#redeployed-the-stack-reconnect-checklist) below) |
 | OAuth popup bounces with `invalid_scope` | Claude requests **every** scope Cognito's discovery advertises; a client that disallows any of them bounces | The `ClaudeClient` in `identity.yaml` allows the full standard OIDC set + `pairputer-mcp/invoke`. If you narrowed it, restore the full set |
 | Widget renders stale UI after a widget/server redeploy | Claude caches the widget per conversation render | Start a **NEW** chat; old conversations may keep the stale widget (expected) |
 | Widget stuck invisible on open | The reveal handshake failed (a `tools/call` raced `ui/notifications/initialized`, or `appInfo` was mis-keyed) | This is a widget-code bug class, not a user setup issue - see Capabilities below and the E2E checklist |
 
 ---
+
+---
+
+## Redeployed the stack? Reconnect checklist
+
+A fresh stack means a **new Cognito user pool, new client ids, and a new `McpEndpoint` URL**. Every
+chat host's connector still pins the OLD registration, and the failure modes are confusingly different:
+
+- `invalid_request` on the Cognito hosted UI, with an old `client_id` in the URL: the connector is
+  presenting the deleted stack's OAuth client. **"Reconnect" does NOT fix this** - it only refreshes
+  tokens for the same (dead) registration. **Fully remove the connector and re-add it** with the new
+  stack's `McpEndpoint` output.
+- `redirect_mismatch` with the NEW client id (ChatGPT only): the recreated ChatGPT connector's
+  **per-connector callback URL** (`https://chatgpt.com/connector/oauth/<id>`, shown in the connector's
+  settings) is not registered on the fresh pool. Register it:
+  `substrate/wire-chatgpt.sh --register-callback '<that url>'`.
+- Claude needs no callback step (its redirect URLs are static and pre-baked in `identity.yaml`);
+  a full remove and re-add with the new `McpEndpoint` is sufficient.
+- Only the **ChatGPT (web)** and **Claude (web)** connectors need setup: each covers that product's
+  web, desktop, and mobile apps, and **Codex rides the ChatGPT connector**.
 
 ## Capabilities / constraints (all empirically proven)
 

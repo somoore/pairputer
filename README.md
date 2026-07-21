@@ -14,7 +14,7 @@ pairputer is a deployable *substrate*: it runs an interactive **capsule** (a Lam
 
 > Use the pairputer app to open the Pairputer Workbench (play_capsule) so we can share a live desktop.
 
-Connector setup: [`docs/hosts/chatgpt.md`](./docs/hosts/chatgpt.md) · [`docs/hosts/claude.md`](./docs/hosts/claude.md).
+Connector setup: [`docs/chatgpt.md`](./docs/chatgpt.md) · [`docs/claude.md`](./docs/claude.md).
 
 The bundled reference capsule is the **Pairputer Workbench**: a disposable, resumable Linux dev desktop (browser, VS Code, terminal) that you and whichever frontier AI you prefer operate together. Your git identity, editor settings, and projects survive Freeze, Thaw, and even Trash, thanks to the durable per-tenant workspace.
 
@@ -34,7 +34,7 @@ signed public images.
 
 Click the button, enter **one input: your email address** (it becomes the super-admin account and receives the invite), and deploy. Everything else defaults to pairputer's signed public images and the Pairputer Workbench capsule. Behind the scenes it stands up Cognito, the MCP control plane (Bedrock AgentCore), a private CloudFront-fronted data plane, and builds the Workbench MicroVM image in your account.
 
-After it finishes, you get an **admin invite email** with your temporary password. Then add the pairputer connector in ChatGPT (web) and Claude (web) using your stack's `McpEndpoint` output (see [`docs/hosts/`](./docs/hosts/)) and play.
+After it finishes, you get an **admin invite email** with your temporary password. Then add the pairputer connector in ChatGPT (web) and Claude (web) using your stack's `McpEndpoint` output (see [`docs/chatgpt.md`](./docs/chatgpt.md) / [`docs/claude.md`](./docs/claude.md)) and play.
 
 **`us-east-1` is the tested and recommended region.** The template isn't hard-locked to it, but other
 regions are unverified and you're on your own there: the CloudFront-scope WAF only exists in `us-east-1`

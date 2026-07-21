@@ -21,9 +21,9 @@ capsules/agent-doom/capsules/
 
 # Scott's ~/.gitignore_global excludes "CLAUDE.md" (no-slash + macOS case-insensitive),
 # which swallows ANY claude.md at any depth. We WANT the root CLAUDE.md ignored (internal,
-# not shipped publicly), but the host doc docs/hosts/claude.md must stay tracked — so scope
+# not shipped publicly), but the host doc docs/claude.md must stay tracked — so scope
 # the re-include to that one path only, rather than a blanket !CLAUDE.md.
-!docs/hosts/claude.md
+!docs/claude.md
 
 # --- Internal docs: kept locally, not shipped in the public repo -----------------------------
 # Working notes, migration/cost/vision memos, blog drafts, and deep-internal design docs. These

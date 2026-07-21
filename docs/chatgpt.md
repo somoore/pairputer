@@ -84,8 +84,7 @@ connector callbacks and re-asserts the scope set). Skipping this step = the OAut
 SAME callback id, so re-running this command is often a no-op - run it anyway, it's harmless.
 
 > Redeployed or replaced the whole stack? The connector also pins the old stack's OAuth client and
-> endpoint - see the [reconnect checklist](./README.md#redeployed-the-stack-reconnect-checklist-verified-live-2026-07-20)
-> before debugging anything else.
+> endpoint - see the reconnect checklist at the bottom of this page before debugging anything else.
 
 ### 5. Connect (OAuth)
 
@@ -132,6 +131,26 @@ app automatically.
 | Tool calls time out | ChatGPT's tool budget is ~60 s | `play_capsule` cold boot (~15-30 s) fits; anything longer must return fast (see the fire-and-forget `drive_goal` pattern) |
 | **Desktop:** widget flashes then disappears; model reports the launch "blocked by the platform safety check" | Desktop applies the app-permission gate to write tools (`play_capsule`) more aggressively than web; a stale conversation can wedge it | Start a **new chat** (fixed it live 2026-07-08); if it persists, Settings → Apps → pairputer → Permissions → allow. The widget's own 🔥 Launch button (user gesture) also bypasses the model-call gate |
 | **Desktop:** Pop out docks a right-side panel; stream stalls (FPS 0.0 · connection terrible) | Desktop's pop-out is a docked panel and the transition severs the player's SSE streams (web survives) | Widget ≥2026-07-09: stall watchdog auto-reconnects (re-mints token, stop→start streams) within ~5 s; exclusive mode-button labels + safeArea padding fix the stacked/overlapped chrome |
+
+---
+
+## Redeployed the stack? Reconnect checklist
+
+A fresh stack means a **new Cognito user pool, new client ids, and a new `McpEndpoint` URL**. Every
+chat host's connector still pins the OLD registration, and the failure modes are confusingly different:
+
+- `invalid_request` on the Cognito hosted UI, with an old `client_id` in the URL: the connector is
+  presenting the deleted stack's OAuth client. **"Reconnect" does NOT fix this** - it only refreshes
+  tokens for the same (dead) registration. **Fully remove the connector and re-add it** with the new
+  stack's `McpEndpoint` output.
+- `redirect_mismatch` with the NEW client id (ChatGPT only): the recreated ChatGPT connector's
+  **per-connector callback URL** (`https://chatgpt.com/connector/oauth/<id>`, shown in the connector's
+  settings) is not registered on the fresh pool. Register it:
+  `substrate/wire-chatgpt.sh --register-callback '<that url>'`.
+- Claude needs no callback step (its redirect URLs are static and pre-baked in `identity.yaml`);
+  a full remove and re-add with the new `McpEndpoint` is sufficient.
+- Only the **ChatGPT (web)** and **Claude (web)** connectors need setup: each covers that product's
+  web, desktop, and mobile apps, and **Codex rides the ChatGPT connector**.
 
 ## What ChatGPT gives us beyond Codex (all verified live except where noted)
 
