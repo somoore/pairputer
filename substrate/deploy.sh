@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
-# Re-exec under bash if invoked as `sh deploy.sh` (POSIX sh lacks arrays/[[ ]]/process-substitution
-# this script uses). Without this, `sh deploy.sh` fails with a cryptic syntax error.
+# RUN THIS AS  ./deploy.sh  OR  bash deploy.sh  -- NOT  sh deploy.sh.
+# This is a bash script (arrays, [[ ]], process substitution). A POSIX sh such as macOS `dash`
+# parses the WHOLE file before running line 1, so `sh deploy.sh` dies at parse time on bash-only
+# syntax ("syntax error near ("/"<") BEFORE the re-exec below can fire - the guard cannot rescue a
+# file the interpreter refuses to parse. If you must, invoke bash explicitly. The guard below still
+# catches the rarer case of a POSIX-compatible caller that reaches line 1.
 if [ -z "${BASH_VERSION:-}" ]; then exec bash "$0" "$@"; fi
 #
 # Deploy the pairputer CloudFormation stack.
