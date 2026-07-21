@@ -200,7 +200,9 @@ fi
 CAPSULE_IMAGE_NAME="${PAIRPUTER_CAPSULE_IMAGE_NAME:-${STACK_NAME}-workbench}"
 CAPSULE_BASE_IMAGE_ARN="${PAIRPUTER_CAPSULE_BASE_IMAGE_ARN:-}"
 CAPSULE_BASE_IMAGE_VERSION="${PAIRPUTER_CAPSULE_BASE_IMAGE_VERSION:-0}"
-CAPSULE_IMAGE_MINIMUM_MEMORY_MIB="${PAIRPUTER_CAPSULE_IMAGE_MINIMUM_MEMORY_MIB:-2048}"
+# 8192 matches the pairputer.yaml default and the Workbench's real need; a 2048 override starved the
+# converted Workbench image build. DOOM-only deploys can drop this via the env var.
+CAPSULE_IMAGE_MINIMUM_MEMORY_MIB="${PAIRPUTER_CAPSULE_IMAGE_MINIMUM_MEMORY_MIB:-8192}"
 
 if [[ "${CAPSULE_IMAGE_NAME}" =~ [^a-zA-Z0-9_-] || "${#CAPSULE_IMAGE_NAME}" -gt 64 ]]; then
   echo "ERROR: PAIRPUTER_CAPSULE_IMAGE_NAME must match ^[a-zA-Z0-9-_]{1,64}$." >&2
