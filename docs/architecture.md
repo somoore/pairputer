@@ -41,7 +41,7 @@ flowchart TB
             vo["CloudFront <b>VPC origin</b><br/>private ENI - never public internet"]
             alb["<b>Internal ALB</b> (private subnets)<br/>SG = CloudFront prefix list only · 403 by default"]
             relay["<b>Stateful relay</b> - ECS/Fargate (Node)<br/>verifies HMAC + session freshness<br/>holds upstream WS to VM · mints VM JWE server-side"]
-            nat["egress NAT<br/>fck-nat (~$3/mo) or NAT GW (~$32/mo)"]
+            nat["egress NAT<br/>fck-nat (~$3.70/mo flat) or<br/>NAT GW ($33/mo + $0.045/GB)"]
         end
 
         subgraph capsule["Capsule - Lambda MicroVM (bundled by default)"]
@@ -86,7 +86,7 @@ change what gets built:
 |---|---|---|
 | **Image source** | `Public` | `Public` = pairputer's signed public-ECR images + an API-backed AgentCore custom resource (the native CFN resource rejects public ECR). `Private` = your private-ECR images (or auto-copy ours in, verified first) + the native AgentCore resource. |
 | **Bundle reference capsule** | `true` | `true` = build + register the Pairputer Workbench capsule (useful out of the box). `false` = **bare substrate** - no capsule build, empty registry; capsule tools report "no capsules deployed." |
-| **Networking mode** | `CreateVpcFckNat` | `CreateVpcFckNat` = dedicated VPC + a ~$3/mo fck-nat instance for egress. `CreateVpcNatGateway` = dedicated VPC + a managed NAT gateway. `ExistingVpc` = **bring your own** VPC + private subnets (they must have NAT egress). All three are proven end-to-end. |
+| **Networking mode** | `CreateVpcFckNat` | `CreateVpcFckNat` = dedicated VPC + a ~$3.70/mo fck-nat instance for egress (no per-GB charge). `CreateVpcNatGateway` = dedicated VPC + a managed NAT gateway ($33/mo fixed plus $0.045/GB processed). `ExistingVpc` = **bring your own** VPC + private subnets (they must have NAT egress). All three are proven end-to-end. Full cost breakdown: [`1-click-cost.md`](./1-click-cost.md). |
 
 Nested stacks: `identity` (Cognito), `security` (secrets), `sessions` (DynamoDB), `relay-network`
 (VPC/NAT), `relay` (ECS/ALB/CloudFront), `cloudfront-waf`, `agentcore` (MCP runtime), plus
