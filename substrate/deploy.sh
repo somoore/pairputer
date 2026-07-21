@@ -506,7 +506,12 @@ import sys, yaml, re
 c = yaml.safe_load(open(sys.argv[1])).get("capsule", {})
 def clean(v, fb):
     s = re.sub(r"\s+", " ", str(v or "")).replace(chr(34), "")
-    s = s.encode("ascii", "replace").decode().replace("?", "-").strip()
+    s = s.encode("ascii", "replace").decode().replace("?", "-")
+    # These land in a CloudFormation tag value, whose charset is ^[\p{L}\p{Z}\p{N}_.:/=+\-@]*$
+    # (no comma/paren/semicolon/etc). Map any tag-illegal char to a space so a normal prose
+    # description (commas and all) can never fail change-set validation.
+    s = re.sub(r"[^\w .:/=+\-@]", " ", s)
+    s = re.sub(r"\s+", " ", s).strip()
     return s or fb
 print(clean(c.get("id"), "computer-use-desktop"), clean(c.get("name"), "Pairputer Workbench"),
       clean(c.get("description"), "Pairputer Workbench capsule"), sep="\t")
