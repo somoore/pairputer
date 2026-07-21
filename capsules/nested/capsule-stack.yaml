@@ -320,7 +320,8 @@ Resources:
     Type: AWS::Lambda::MicrovmImage
     Properties:
       Name: !Ref CapsuleImageName
-      Description: !Sub "pairputer capsule MicroVM image (${CapsuleId})."
+      # AWS::Lambda::MicrovmImage Description charset is ^[\p{L}\p{Z}\p{N}_.:/=+\-@]*$ - NO parens.
+      Description: !Sub "pairputer capsule MicroVM image ${CapsuleId}"
       BaseImageArn: !If
         - UseDefaultBaseImageArn
         - !Sub "arn:aws:lambda:${AWS::Region}:aws:microvm-image:al2023-1"
