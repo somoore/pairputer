@@ -10,7 +10,8 @@ You do not need to read this to deploy. Launch with just your email from the
 The parameters below are grouped the same way the CloudFormation console groups them, so the section
 headings match the form you see.
 
-## Start here
+<details>
+<summary><b>Start here</b></summary>
 
 These are the only two parameters most people touch.
 
@@ -27,10 +28,13 @@ These are the only two parameters most people touch.
 
 - **Type:** string. **Default:** `Public`. **Values:** `Public`, `Private`.
 - `Public`: deploy pairputer's signed, digest-pinned public-ECR images. Nothing to build, no Docker.
-- `Private`: run the images from your own account's private ECR. See
-  [Container images](#container-images) for the two ways to do this.
+- `Private`: run the images from your own account's private ECR. See the **Container images** section
+  below for the two ways to do this.
 
-## Container images
+</details>
+
+<details>
+<summary><b>Container images</b></summary>
 
 These apply only when `ImageSource` is `Private`. In `Public` mode they are ignored, and the two
 `ContainerUri` defaults already point at the correct signed public images.
@@ -59,7 +63,10 @@ These apply only when `ImageSource` is `Private`. In `Public` mode they are igno
 - **Type:** string. **Default:** the signed public relay image, pinned by digest.
 - The relay image used in `Public` mode. Same guidance as `ContainerUri`.
 
-## Network
+</details>
+
+<details>
+<summary><b>Network</b></summary>
 
 These control how the streaming relay gets the private subnets its internal load balancer needs.
 CloudFront VPC origins require the load balancer to be internal, so the relay always runs in private
@@ -105,7 +112,10 @@ subnets with an egress path.
 - `CreateVpcFckNat` mode only. Leave it blank; the stack resolves the current fck-nat ARM64 AMI for your
   region at deploy time. Set it only to pin a specific AMI as an advanced override.
 
-## Bundled capsule (Pairputer Workbench)
+</details>
+
+<details>
+<summary><b>Bundled capsule (Pairputer Workbench)</b></summary>
 
 These control the capsule that ships with the substrate.
 
@@ -160,7 +170,10 @@ These control the capsule that ships with the substrate.
 - The minimum memory for each capsule MicroVM. The Workbench needs 8192. Lower it only for a smaller
   capsule that you know fits in less.
 
-## Runtime
+</details>
+
+<details>
+<summary><b>Runtime</b></summary>
 
 These tune the MCP runtime, OAuth, and the relay's warm behavior.
 
@@ -206,7 +219,10 @@ These tune the MCP runtime, OAuth, and the relay's warm behavior.
 - When `true`, the capsule image build fails if its input self-test does not pass, so a build with
   broken keyboard or mouse never ships. Leave it `true` unless you are debugging the build itself.
 
-## Security
+</details>
+
+<details>
+<summary><b>Security</b></summary>
 
 These control the edge web application firewall (WAF) in front of the streaming distribution.
 
@@ -228,7 +244,10 @@ These control the edge web application firewall (WAF) in front of the streaming 
 - A coarse per-source-IP request ceiling over five minutes. Per-session input limits are enforced
   separately in the relay, so this ceiling should be high enough to tolerate shared NATs.
 
-## Scaling and durable storage
+</details>
+
+<details>
+<summary><b>Scaling and durable storage</b></summary>
 
 These parameters are not in a named console section. They control relay scaling, durable workspace
 storage, and the capsule capability manifest.
@@ -256,7 +275,10 @@ storage, and the capsule capability manifest.
   in the live capsule alongside the human.
 - Leave it empty for a stream-only capsule.
 
-## Reference capsule identity
+</details>
+
+<details>
+<summary><b>Reference capsule identity</b></summary>
 
 These name the bundled capsule in the registry. The defaults describe the Pairputer Workbench, and you
 rarely change them by hand.
@@ -278,7 +300,10 @@ rarely change them by hand.
 - A one-line description shown by `list_capsules`. It becomes a MicroVM image tag, so the same character
   rules as `ReferenceCapsuleName` apply.
 
-## Admin creation
+</details>
+
+<details>
+<summary><b>Admin creation</b></summary>
 
 ### CreateSuperAdminUser
 
@@ -288,6 +313,8 @@ rarely change them by hand.
   command-line step.
 - Set it to `false` to skip in-stack creation and create the admin yourself with the stack-output
   commands.
+
+</details>
 
 ## See also
 
