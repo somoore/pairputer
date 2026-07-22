@@ -16,7 +16,7 @@ pairputer is a deployable *substrate*: it runs an interactive **capsule** (a Lam
 
 Connector setup: [`docs/chatgpt.md`](./docs/chatgpt.md) · [`docs/claude.md`](./docs/claude.md).
 
-The bundled reference capsule is the **Pairputer Workbench**: a disposable, resumable Linux dev desktop (browser, VS Code, terminal) that you and whichever frontier AI you prefer operate together. A `persistent/` folder - holding your git identity, editor settings, and projects - survives Freeze, Thaw, and even Trash; everything else dies with the VM. You and the AI can drop files into it from the desktop or over chat.
+The bundled reference capsule is the **Pairputer Workbench**: a disposable, resumable Linux dev desktop (browser, VS Code, terminal) that you and whichever frontier AI you prefer operate together. A `persistent/` folder holding your git identity, editor settings, and projects survives Freeze, Thaw, and even Trash; everything else dies with the VM. You and the AI can drop files into it from the desktop or over chat.
 
 ## Why pairputer
 
