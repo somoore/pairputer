@@ -6,6 +6,8 @@
   </picture>
 </div>
 
+> **Experimental — not for production.** pairputer on AWS is experimental software for hands-on testing and exploration. Deploy only into an AWS account you own and control—never into shared, customer, or production environments. You are responsible for the resources it creates and the cost they incur.
+
 **Stream a live Linux MicroVM into your AI chat. Video, audio, keyboard, mouse. Runs entirely in your own AWS account.**
 
 pairputer is a deployable *substrate*: it runs an interactive **capsule** (a Lambda MicroVM workload) and streams it inline into an AI chat client. You get a live viewport, the model gets a controlled tool surface, and you're both driving the same machine. It suspends on idle (**Freeze**) and resumes on demand (**Thaw**), so you only pay while you're actually using it.
@@ -23,7 +25,7 @@ The bundled reference capsule is the **Pairputer Workbench**: a disposable, resu
 - **Runs in *your* AWS account.** No third-party SaaS holds your session, and no static credentials leave your machine.
 - **True 1-click.** Signed, digest-pinned public images plus a public capsule build context. Nothing to build locally.
 - **Secure by construction.** OAuth (Cognito PKCE), a private VPC data plane behind CloudFront + WAF, and cosign-signed images with SLSA provenance you can verify yourself.
-- **Bring your own workload.** The Workbench is the default. The substrate is capsule-agnostic, and any capsule deploys as a cartridge with `substrate/deploy-capsule.sh <capsule-dir>`.
+- **Bring your own workload.** The Workbench is the default. The substrate is capsule-agnostic, and any capsule deploys as a cartridge with `substrate/deploy-capsule.sh <capsule-dir>`. To build your own, see [`docs/create-capsule.md`](./docs/create-capsule.md).
 
 ## Deploy it
 
@@ -70,6 +72,7 @@ in dependency order. Nothing is left running, so the bill stops.
 ## Learn more
 
 - [`docs/architecture.md`](./docs/architecture.md): how the pieces fit (diagram)
+- [`docs/create-capsule.md`](./docs/create-capsule.md): build your own capsule (the cartridge model)
 - [`docs/1-click-advanced.md`](./docs/1-click-advanced.md): every 1-click launch parameter and what it does
 - [`docs/1-click-cost.md`](./docs/1-click-cost.md): every resource + IAM role + cost model
 - [`SECURITY.md`](./SECURITY.md): the end-to-end supply-chain and trust model
